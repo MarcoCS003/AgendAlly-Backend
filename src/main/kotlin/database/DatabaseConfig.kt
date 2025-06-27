@@ -1,6 +1,5 @@
-package com.example.database
+package database
 
-import com.example.Career
 import org.jetbrains.exposed.sql.*
 import org.jetbrains.exposed.sql.javatime.date
 import org.jetbrains.exposed.sql.javatime.datetime
@@ -8,58 +7,148 @@ import org.jetbrains.exposed.sql.transactions.transaction
 import java.time.LocalDate
 import java.time.LocalDateTime
 
-// Tabla de Institutos
-object Institutes : Table("institutes") {
+// ================================
+// ✅ DEFINICIÓN DE TABLAS
+// ================================
+
+/**
+ * Tabla principal: Organizations (antes Institutes)
+ */
+object Organizations : Table("organizations") {
     val id = integer("id").autoIncrement()
-    val acronym = varchar("acronym", 10)
+    val acronym = varchar("acronym", 10).uniqueIndex()
     val name = varchar("name", 255)
+    val description = text("description").default("")
     val address = text("address")
     val email = varchar("email", 100)
     val phone = varchar("phone", 20)
-    val studentNumber = integer("student_number")
-    val teacherNumber = integer("teacher_number")
+    val studentNumber = integer("student_number").default(0)
+    val teacherNumber = integer("teacher_number").default(0)
+    val logoUrl = varchar("logo_url", 500).nullable()
     val webSite = varchar("website", 255).nullable()
     val facebook = varchar("facebook", 255).nullable()
     val instagram = varchar("instagram", 255).nullable()
     val twitter = varchar("twitter", 255).nullable()
     val youtube = varchar("youtube", 255).nullable()
+    val linkedin = varchar("linkedin", 255).nullable()
+    val isActive = bool("is_active").default(true)
+    val createdAt = datetime("created_at").default(LocalDateTime.now())
+    val updatedAt = datetime("updated_at").nullable()
 
     override val primaryKey = PrimaryKey(id)
 }
 
-// Tabla de Carreras
-object Careers : Table("careers") {
+/**
+ * Tabla de canales: Channels (reemplaza Careers)
+ */
+object Channels : Table("channels") {
     val id = integer("id").autoIncrement()
-    val careerID = integer("career_id")
-    val name = varchar("name", 255)
-    val acronym = varchar("acronym", 50)
-    val email = varchar("email", 100).nullable()
+    val organizationId = reference("organization_id", Organizations.id)
+    val name = varchar("name", 255) // "Ingeniería en TICS", "Servicios Escolares"
+    val acronym = varchar("acronym", 50) // "TICS", "SE", "BIBLIO"
+    val description = text("description").default("")
+    val type = varchar("type", 50).default("CAREER") // CAREER, DEPARTMENT, ADMINISTRATIVE
+    val email = varchar("email", 255).nullable()
     val phone = varchar("phone", 20).nullable()
-    val instituteId = reference("institute_id", Institutes.id)
+    val isActive = bool("is_active").default(true)
+    val createdAt = datetime("created_at").default(LocalDateTime.now())
+    val updatedAt = datetime("updated_at").nullable()
 
     override val primaryKey = PrimaryKey(id)
+
+    // Evitar duplicados por organización + acrónimo
+    init {
+        uniqueIndex(organizationId, acronym)
+    }
 }
 
-// NUEVA: Tabla de Eventos del Blog
+/**
+ * Tabla de eventos del blog
+ */
 object BlogEvents : Table("blog_events") {
     val id = integer("id").autoIncrement()
     val title = varchar("title", 255)
-    val shortDescription = text("short_description")
-    val longDescription = text("long_description")
-    val location = varchar("location", 255)
+    val shortDescription = text("short_description").default("")
+    val longDescription = text("long_description").default("")
+    val location = varchar("location", 255).default("")
     val startDate = date("start_date").nullable()
     val endDate = date("end_date").nullable()
-    val category = varchar("category", 50).default("INSTITUTIONAL") // INSTITUTIONAL, CAREER, PERSONAL
-    val imagePath = varchar("image_path", 500)
-    val instituteId = reference("institute_id", Institutes.id)
+    val category = varchar("category", 50).default("INSTITUTIONAL") // INSTITUTIONAL, CAREER, DEPARTMENT
+    val imagePath = varchar("image_path", 500).default("")
+    val organizationId = reference("organization_id", Organizations.id)
+    val channelId = reference("channel_id", Channels.id).nullable() // Para eventos específicos de canal
     val createdAt = datetime("created_at").default(LocalDateTime.now())
-    val updatedAt = datetime("updated_at").default(LocalDateTime.now())
+    val updatedAt = datetime("updated_at").nullable()
     val isActive = bool("is_active").default(true)
 
     override val primaryKey = PrimaryKey(id)
 }
 
-// Configuración de la base de datos
+/**
+ * Tabla de items/detalles de eventos
+ */
+object BlogEventItems : Table("blog_event_items") {
+    val id = integer("id").autoIncrement()
+    val eventId = reference("event_id", BlogEvents.id)
+    val type = varchar("type", 50) // SCHEDULE, ATTACHMENT, PHONE, etc.
+    val title = varchar("title", 255) // Título descriptivo
+    val value = text("value") // Valor del item (URL, texto, etc.)
+    val isClickable = bool("is_clickable").default(false)
+    val iconName = varchar("icon_name", 50).nullable()
+    val sortOrder = integer("sort_order").default(0) // Para ordenar los items
+
+    override val primaryKey = PrimaryKey(id)
+}
+
+/**
+ * Tabla de usuarios
+ */
+object Users : Table("users") {
+    val id = integer("id").autoIncrement()
+    val googleId = varchar("google_id", 255).uniqueIndex()
+    val email = varchar("email", 255).uniqueIndex()
+    val name = varchar("name", 255)
+    val profilePicture = varchar("profile_picture", 500).nullable()
+    val role = varchar("role", 50).default("STUDENT") // STUDENT, ADMIN, SUPER_ADMIN
+    val isActive = bool("is_active").default(true)
+    val createdAt = datetime("created_at").default(LocalDateTime.now())
+    val lastLoginAt = datetime("last_login_at").nullable()
+    val authToken = text("auth_token").nullable() // JWT token
+    val tokenExpiresAt = datetime("token_expires_at").nullable()
+    val notificationsEnabled = bool("notifications_enabled").default(true)
+    val syncEnabled = bool("sync_enabled").default(false)
+    val lastSyncAt = datetime("last_sync_at").nullable()
+
+    override val primaryKey = PrimaryKey(id)
+}
+
+/**
+ * Tabla de suscripciones de usuarios a canales
+ */
+object UserSubscriptions : Table("user_subscriptions") {
+    val id = integer("id").autoIncrement()
+    val userId = reference("user_id", Users.id)
+    val channelId = reference("channel_id", Channels.id)
+    val subscribedAt = datetime("subscribed_at").default(LocalDateTime.now())
+    val isActive = bool("is_active").default(true)
+    val notificationsEnabled = bool("notifications_enabled").default(true)
+    val syncedAt = datetime("synced_at").nullable()
+
+    override val primaryKey = PrimaryKey(id)
+
+    init {
+        // Un usuario solo puede suscribirse una vez por canal
+        uniqueIndex(userId, channelId)
+    }
+}
+
+// ================================
+// ✅ CONFIGURACIÓN DE LA BASE DE DATOS
+// ================================
+
+/**
+ * Inicializar base de datos con todas las tablas y datos de ejemplo
+ */
 fun initDatabase() {
     // Conectar a H2 (base de datos en memoria para desarrollo)
     Database.connect(
@@ -67,234 +156,429 @@ fun initDatabase() {
         driver = "org.h2.Driver"
     )
 
-    // Crear tablas
+    println("🔗 Conectando a base de datos H2...")
+
+    // Crear todas las tablas
     transaction {
-        SchemaUtils.create(Institutes, Careers, BlogEvents) // Agregamos BlogEvents
+        SchemaUtils.create(
+            Organizations,
+            Channels,
+            BlogEvents,
+            BlogEventItems,
+            Users,
+            UserSubscriptions
+        )
 
-        // Insertar datos de ejemplo
-        insertSampleData()
-        insertSampleEvents() // Nueva función para eventos
-    }
+        println("✅ Tablas creadas exitosamente")
 
-    println("✅ Base de datos H2 inicializada")
-    println("📊 URL: jdbc:h2:mem:academically")
-    println("🔗 Console: http://localhost:8080/h2-console")
-}
-
-// Insertar datos de muestra (tus institutos actuales)
-fun insertSampleData() {
-    // Solo insertar si no hay datos
-    if (Institutes.selectAll().count() > 0) return
-
-    // Instituto Tecnológico de Puebla
-    val itpId = Institutes.insert {
-        it[acronym] = "ITP"
-        it[name] = "Instituto Tecnológico de Puebla"
-        it[address] = "Del Tecnológico 420, Corredor Industrial la Ciénega, 72220 Heroica Puebla de Zaragoza, Pue."
-        it[email] = "info@puebla.tecnm.mx"
-        it[phone] = "222 229 8810"
-        it[studentNumber] = 6284
-        it[teacherNumber] = 298
-        it[webSite] = "https://www.puebla.tecnm.mx"
-        it[facebook] = "https://www.facebook.com/TecNMPuebla"
-        it[instagram] = "https://www.instagram.com/tecnmpuebla"
-        it[youtube] = "https://www.youtube.com/user/TECPUEBLA"
-    } get Institutes.id
-
-    // Carreras del ITP
-    val itpCareers = listOf(
-        Career(1, "Ingeniería en Tecnologías de la Información y Comunicaciones", "TICS"),
-        Career(2, "Ingeniería Industrial", "Ing. Indust"),
-        Career(3, "Ingeniería Electrónica", "Electrónica"),
-        Career(4, "Ingeniería Eléctrica", "Eléctrica"),
-        Career(5, "Ingeniería en Gestión Empresarial", "Gestión Empresarial"),
-        Career(6, "Ingeniería Mecánica", "Mecánica")
-    )
-
-    itpCareers.forEach { career ->
-        Careers.insert {
-            it[careerID] = career.careerID
-            it[name] = career.name
-            it[acronym] = career.acronym
-            it[email] = career.email
-            it[phone] = career.phone
-            it[instituteId] = itpId
+        // Insertar datos de ejemplo solo si las tablas están vacías
+        if (Organizations.selectAll().count() == 0L) {
+            println("📊 Insertando datos de ejemplo...")
+            insertSampleData()
+            println("✅ Datos de ejemplo insertados")
+        } else {
+            println("ℹ️ Datos ya existen, omitiendo inserción")
         }
     }
 
+    println("✅ Base de datos H2 inicializada exitosamente")
+    println("📊 URL: jdbc:h2:mem:academically")
+    println("🔗 Console: http://localhost:8080/h2-console (si está habilitado)")
+}
+
+// ================================
+// ✅ INSERCIÓN DE DATOS DE EJEMPLO
+// ================================
+
+/**
+ * Insertar todas las organizaciones, canales y eventos de ejemplo
+ */
+private fun insertSampleData() {
+    insertOrganizations()
+    insertChannels()
+    insertEvents()
+    insertEventItems()
+    insertSampleUsers()
+}
+
+/**
+ * Insertar organizaciones de ejemplo
+ */
+private fun insertOrganizations() {
+    println("🏢 Insertando organizaciones...")
+
+    // Instituto Tecnológico de Puebla
+    val itpId = Organizations.insert {
+        it[acronym] = "ITP"
+        it[name] = "Instituto Tecnológico de Puebla"
+        it[description] = "Instituto líder en educación tecnológica en el estado de Puebla"
+        it[address] = "Del Tecnológico 420, Corredor Industrial la Ciénega, 72220 Heroica Puebla de Zaragoza, Pue."
+        it[email] = "info@puebla.tecnm.mx"
+        it[phone] = "222 229 8810"
+        it[studentNumber] = 8500
+        it[teacherNumber] = 280
+        it[webSite] = "https://www.puebla.tecnm.mx"
+        it[facebook] = "https://www.facebook.com/itpuebla"
+        it[instagram] = "https://www.instagram.com/itpuebla"
+        it[isActive] = true
+    } get Organizations.id
+
     // Instituto Tecnológico de Tijuana
-    val ittId = Institutes.insert {
+    val ittId = Organizations.insert {
         it[acronym] = "ITT"
         it[name] = "Instituto Tecnológico de Tijuana"
+        it[description] = "Excelencia académica en la frontera norte"
         it[address] = "Calzada del Tecnológico S/N, Fraccionamiento Tomas Aquino, 22414 Tijuana, B.C."
-        it[email] = "webmaster@tectijuana.mx"
+        it[email] = "info@tijuana.tecnm.mx"
         it[phone] = "664 607 8400"
         it[studentNumber] = 7500
         it[teacherNumber] = 350
         it[webSite] = "https://www.tijuana.tecnm.mx"
         it[facebook] = "https://www.facebook.com/tectijuana"
         it[instagram] = "https://www.instagram.com/tecnmtijuana"
-    } get Institutes.id
+        it[isActive] = true
+    } get Organizations.id
 
-    // Carreras del ITT
-    val ittCareers = listOf(
-        Career(7, "Licenciatura en Administración", "Administración"),
-        Career(8, "Ingeniería en Tecnologías de la Información y Comunicaciones", "TICS")
-    )
+    // Instituto Tecnológico de Monterrey (Campus ejemplo)
+    val itmId = Organizations.insert {
+        it[acronym] = "ITM"
+        it[name] = "Instituto Tecnológico de Monterrey"
+        it[description] = "Campus tecnológico de vanguardia en el noreste"
+        it[address] = "Av. Eugenio Garza Sada 2501 Sur, Tecnológico, 64849 Monterrey, N.L."
+        it[email] = "info@monterrey.tecnm.mx"
+        it[phone] = "81 8358 2000"
+        it[studentNumber] = 12000
+        it[teacherNumber] = 450
+        it[webSite] = "https://www.monterrey.tecnm.mx"
+        it[isActive] = true
+    } get Organizations.id
 
-    ittCareers.forEach { career ->
-        Careers.insert {
-            it[careerID] = career.careerID
-            it[name] = career.name
-            it[acronym] = career.acronym
-            it[email] = career.email
-            it[phone] = career.phone
-            it[instituteId] = ittId
-        }
-    }
-
-    // Agregar más institutos...
-    addMoreInstitutes()
-
-    println("✅ Datos de ejemplo insertados: ${Institutes.selectAll().count()} institutos")
+    println("✅ ${Organizations.selectAll().count()} organizaciones insertadas")
 }
 
-// NUEVA: Insertar eventos de ejemplo
-fun insertSampleEvents() {
-    // Solo insertar si no hay eventos
-    if (BlogEvents.selectAll().count() > 0) return
+/**
+ * Insertar canales para todas las organizaciones
+ */
+private fun insertChannels() {
+    println("📺 Insertando canales...")
 
-    // Obtener el ID del ITP para los eventos
-    val itpId = Institutes.select { Institutes.acronym eq "ITP" }
-        .single()[Institutes.id]
+    // Obtener IDs de organizaciones
+    val itpId = Organizations.select { Organizations.acronym eq "ITP" }.single()[Organizations.id]
+    val ittId = Organizations.select { Organizations.acronym eq "ITT" }.single()[Organizations.id]
+    val itmId = Organizations.select { Organizations.acronym eq "ITM" }.single()[Organizations.id]
 
-    // Eventos del Instituto Tecnológico de Puebla
-    val sampleEvents = listOf(
-        Triple(
-            "INNOVATECNMN 2025",
-            "Registro para estudiantes lider",
-            "Cumbre nacional de desarrollo tecnológico, investigación e innovación INOVATECNM. Dirigida al estudiantado inscrito\n" +
-                    " al periodo Enero-Junio 2025 personal docente y de investigación del Instituto Tecnológico de Puebla"
-        ) to LocalDate.of(2025, 11, 28),
-
-        Triple(
-            "Congreso Internacional en agua limpia y saneamiento del TECNM",
-            "Registro para estudiantes",
-            "Participa en el 1er. Congreso Internacional de Agua Limpia y Saneamiento del TECNM"
-        ) to LocalDate.of(2025, 9, 25),
-
-        Triple(
-            "Concurso de Programación 2025",
-            "Para estudiantes de TICS",
-            "Invitación a los estudiantes de TICS a participar en el concurso de programación de 2025 sin costo"
-        ) to LocalDate.of(2025, 4, 28),
-
-        Triple(
-            "Jornadas de TICS 2025",
-            "Conferencias internacionales",
-            "Participa en las jornadas de TICS del año 2025 con conferencistas internacionales, estaremos enfocados en el auge de la inteligencia artificial"
-        ) to LocalDate.of(2025, 9, 15),
-
-        Triple(
-            "Plática de Servicio Social",
-            "Información importante",
-            "Información sobre los requisitos y proceso para realizar el servicio social"
-        ) to LocalDate.of(2025, 5, 10)
+    // Canales del ITP
+    val itpChannels = listOf(
+        Triple("Ingeniería en Tecnologías de la Información y Comunicaciones", "TICS", "CAREER"),
+        Triple("Ingeniería Industrial", "INDUSTRIAL", "CAREER"),
+        Triple("Ingeniería en Sistemas Computacionales", "SISTEMAS", "CAREER"),
+        Triple("Licenciatura en Administración", "ADMIN", "CAREER"),
+        Triple("Servicios Escolares", "SE", "ADMINISTRATIVE"),
+        Triple("Biblioteca", "BIBLIO", "DEPARTMENT"),
+        Triple("Centro de Cómputo", "COMPUTO", "DEPARTMENT"),
+        Triple("Recursos Humanos", "RH", "ADMINISTRATIVE")
     )
 
-    sampleEvents.forEachIndexed { index, (eventData, date) ->
-        val (title, shortDesc, longDesc) = eventData
-        BlogEvents.insert {
-            it[this.title] = title
-            it[shortDescription] = shortDesc
-            it[longDescription] = longDesc
-            it[location] = if (index < 2) "Edificio 53" else "Edificio 36"
-            it[startDate] = date
-            it[endDate] = date
-            it[category] = if (index < 2) "INSTITUTIONAL" else "CAREER"
-            it[imagePath] = ""
-            it[instituteId] = itpId
+    itpChannels.forEach { (name, acronym, type) ->
+        Channels.insert {
+            it[organizationId] = itpId
+            it[this.name] = name
+            it[this.acronym] = acronym
+            it[description] = "Canal de $name del ITP"
+            it[this.type] = type
+            it[email] = "${acronym.lowercase()}@puebla.tecnm.mx"
+            it[phone] = "222 229 8810"
             it[isActive] = true
         }
     }
 
-    println("✅ Eventos de ejemplo insertados: ${BlogEvents.selectAll().count()} eventos")
+    // Canales del ITT
+    val ittChannels = listOf(
+        Triple("Ingeniería en Tecnologías de la Información", "TICS_TIJ", "CAREER"),
+        Triple("Ingeniería Electrónica", "ELECTRONICA", "CAREER"),
+        Triple("Ingeniería Mecánica", "MECANICA", "CAREER"),
+        Triple("Servicios Escolares", "SE_TIJ", "ADMINISTRATIVE"),
+        Triple("Biblioteca", "BIBLIO_TIJ", "DEPARTMENT")
+    )
+
+    ittChannels.forEach { (name, acronym, type) ->
+        Channels.insert {
+            it[organizationId] = ittId
+            it[this.name] = name
+            it[this.acronym] = acronym
+            it[description] = "Canal de $name del ITT"
+            it[this.type] = type
+            it[email] = "${acronym.lowercase()}@tijuana.tecnm.mx"
+            it[phone] = "664 607 8400"
+            it[isActive] = true
+        }
+    }
+
+    // Canales del ITM
+    val itmChannels = listOf(
+        Triple("Ingeniería en Software", "SOFTWARE", "CAREER"),
+        Triple("Ingeniería en Datos e Inteligencia Artificial", "IA", "CAREER"),
+        Triple("Servicios Escolares", "SE_MTY", "ADMINISTRATIVE"),
+        Triple("Biblioteca", "BIBLIO_MTY", "DEPARTMENT")
+    )
+
+    itmChannels.forEach { (name, acronym, type) ->
+        Channels.insert {
+            it[organizationId] = itmId
+            it[this.name] = name
+            it[this.acronym] = acronym
+            it[description] = "Canal de $name del ITM"
+            it[this.type] = type
+            it[email] = "${acronym.lowercase()}@monterrey.tecnm.mx"
+            it[phone] = "81 8358 2000"
+            it[isActive] = true
+        }
+    }
+
+    println("✅ ${Channels.selectAll().count()} canales insertados")
 }
 
-fun addMoreInstitutes() {
-    // Instituto Tecnológico de Hermosillo
-    val ithId = Institutes.insert {
-        it[acronym] = "ITH"
-        it[name] = "Instituto Tecnológico de Hermosillo"
-        it[address] = "Av. Tecnológico S/N, Col. El Sahuaro, 83170 Hermosillo, Son."
-        it[email] = "contacto@hermosillo.tecnm.mx"
-        it[phone] = "662 260 6500"
-        it[studentNumber] = 4200
-        it[teacherNumber] = 220
-        it[webSite] = "https://www.hermosillo.tecnm.mx"
-        it[facebook] = "https://www.facebook.com/TecNMHermosillo"
-    } get Institutes.id
+/**
+ * Insertar eventos de ejemplo
+ */
+private fun insertEvents() {
+    println("📅 Insertando eventos...")
 
-    listOf(
-        Career(9, "Ingeniería Industrial", "Ing. Indust"),
-        Career(10, "Ingeniería Electrónica", "Electrónica")
-    ).forEach { career ->
-        Careers.insert {
-            it[careerID] = career.careerID
-            it[name] = career.name
-            it[acronym] = career.acronym
-            it[instituteId] = ithId
+    // Obtener IDs necesarios
+    val itpId = Organizations.select { Organizations.acronym eq "ITP" }.single()[Organizations.id]
+    val ittId = Organizations.select { Organizations.acronym eq "ITT" }.single()[Organizations.id]
+
+    val ticsChannelId = Channels.select {
+        (Channels.organizationId eq itpId) and (Channels.acronym eq "TICS")
+    }.single()[Channels.id]
+
+    val seChannelId = Channels.select {
+        (Channels.organizationId eq itpId) and (Channels.acronym eq "SE")
+    }.single()[Channels.id]
+
+    val biblioChannelId = Channels.select {
+        (Channels.organizationId eq itpId) and (Channels.acronym eq "BIBLIO")
+    }.single()[Channels.id]
+
+    // Evento 1: INNOVATECNM 2025
+    val evento1Id = BlogEvents.insert {
+        it[title] = "INNOVATECNM 2025"
+        it[shortDescription] = "Cumbre nacional de desarrollo tecnológico e investigación"
+        it[longDescription] = """
+            Cumbre nacional de desarrollo tecnológico, investigación e innovación INNOVATECNM. 
+            Dirigida al estudiantado inscrito al periodo Enero-Junio 2025, personal docente y 
+            de investigación del Instituto Tecnológico de Puebla.
+            
+            Incluye conferencias magistrales, talleres especializados, exposición de proyectos 
+            estudiantiles y networking con empresas del sector tecnológico.
+        """.trimIndent()
+        it[location] = "Auditorio Principal ITP"
+        it[startDate] = LocalDate.of(2025, 7, 15)
+        it[endDate] = LocalDate.of(2025, 7, 17)
+        it[category] = "INSTITUTIONAL"
+        it[imagePath] = "/images/innovatecnm2025.jpg"
+        it[organizationId] = itpId
+        it[channelId] = null // Evento institucional
+        it[isActive] = true
+    } get BlogEvents.id
+
+    // Evento 2: Taller de Machine Learning
+    val evento2Id = BlogEvents.insert {
+        it[title] = "Taller de Machine Learning con Python"
+        it[shortDescription] = "Introducción práctica al aprendizaje automático"
+        it[longDescription] = """
+            Taller intensivo sobre fundamentos de Machine Learning con Python y TensorFlow. 
+            Incluye ejemplos prácticos, proyectos hands-on y casos de uso reales en la industria.
+            
+            Requisitos: Conocimientos básicos de Python y matemáticas.
+        """.trimIndent()
+        it[location] = "Laboratorio de Cómputo TICS"
+        it[startDate] = LocalDate.of(2025, 7, 1)
+        it[endDate] = LocalDate.of(2025, 7, 3)
+        it[category] = "CAREER"
+        it[imagePath] = "/images/ml_workshop.jpg"
+        it[organizationId] = itpId
+        it[channelId] = ticsChannelId
+        it[isActive] = true
+    } get BlogEvents.id
+
+    // Evento 3: Proceso de Inscripciones
+    BlogEvents.insert {
+        it[title] = "Proceso de Inscripciones Agosto 2025"
+        it[shortDescription] = "Información importante sobre inscripciones del próximo semestre"
+        it[longDescription] = """
+            Fechas importantes, documentos requeridos y procedimientos para el proceso de 
+            inscripciones del periodo Agosto-Diciembre 2025.
+            
+            Incluye información sobre becas disponibles, horarios de atención y 
+            plataformas digitales para realizar trámites.
+        """.trimIndent()
+        it[location] = "Servicios Escolares"
+        it[startDate] = LocalDate.of(2025, 7, 20)
+        it[endDate] = LocalDate.of(2025, 7, 30)
+        it[category] = "INSTITUTIONAL"
+        it[organizationId] = itpId
+        it[channelId] = seChannelId
+        it[isActive] = true
+    }
+
+    // Evento 4: Renovación de Biblioteca Digital
+    BlogEvents.insert {
+        it[title] = "Renovación de Biblioteca Digital"
+        it[shortDescription] = "Nueva plataforma de recursos digitales disponible"
+        it[longDescription] = """
+            La biblioteca ha actualizado su plataforma digital con nuevos recursos académicos, 
+            bases de datos especializadas y herramientas de investigación.
+            
+            Capacitación disponible para estudiantes y docentes sobre el uso de las nuevas herramientas.
+        """.trimIndent()
+        it[location] = "Biblioteca Central"
+        it[startDate] = LocalDate.of(2025, 6, 30)
+        it[endDate] = null
+        it[category] = "INSTITUTIONAL"
+        it[organizationId] = itpId
+        it[channelId] = biblioChannelId
+        it[isActive] = true
+    }
+
+    // Evento 5: Hackathon TICS 2025
+    BlogEvents.insert {
+        it[title] = "Hackathon TICS 2025"
+        it[shortDescription] = "Competencia de programación de 48 horas"
+        it[longDescription] = """
+            Competencia de desarrollo de software de 48 horas continuas. 
+            Equipos de 3-5 estudiantes crearán soluciones innovadoras para problemas reales.
+            
+            Premios: $50,000 primer lugar, $30,000 segundo lugar, $20,000 tercer lugar.
+        """.trimIndent()
+        it[location] = "Centro de Innovación ITP"
+        it[startDate] = LocalDate.of(2025, 8, 15)
+        it[endDate] = LocalDate.of(2025, 8, 17)
+        it[category] = "CAREER"
+        it[organizationId] = itpId
+        it[channelId] = ticsChannelId
+        it[isActive] = true
+    }
+
+    println("✅ ${BlogEvents.selectAll().count()} eventos insertados")
+}
+
+/**
+ * Insertar items de eventos (detalles adicionales)
+ */
+private fun insertEventItems() {
+    println("📋 Insertando items de eventos...")
+
+    // Obtener evento INNOVATECNM
+    val innovatecnmEvent = BlogEvents.select {
+        BlogEvents.title eq "INNOVATECNM 2025"
+    }.single()
+    val eventId = innovatecnmEvent[BlogEvents.id]
+
+    // Items para INNOVATECNM 2025
+    val items = listOf(
+        Triple("SCHEDULE", "Horario", "15-17 Julio 2025, 9:00 AM - 6:00 PM"),
+        Triple("REGISTRATION_LINK", "Registro", "https://innovatecnm.tecnm.mx/registro"),
+        Triple("EMAIL", "Contacto", "innovatecnm@puebla.tecnm.mx"),
+        Triple("PHONE", "Teléfono", "222 229 8810 ext. 500"),
+        Triple("REQUIREMENTS", "Requisitos", "Estudiante activo del TecNM"),
+        Triple("CAPACITY", "Cupo", "500 participantes")
+    )
+
+    items.forEachIndexed { index, (type, title, value) ->
+        BlogEventItems.insert {
+            it[this.eventId] = eventId
+            it[this.type] = type
+            it[this.title] = title
+            it[this.value] = value
+            it[isClickable] = type in listOf("REGISTRATION_LINK", "EMAIL", "PHONE")
+            it[iconName] = when(type) {
+                "SCHEDULE" -> "schedule"
+                "REGISTRATION_LINK" -> "link"
+                "EMAIL" -> "email"
+                "PHONE" -> "phone"
+                "REQUIREMENTS" -> "info"
+                "CAPACITY" -> "people"
+                else -> null
+            }
+            it[sortOrder] = index
         }
     }
 
-    // Instituto Tecnológico de Toluca
-    val ittolId = Institutes.insert {
-        it[acronym] = "ITT"
-        it[name] = "Instituto Tecnológico de Toluca"
-        it[address] = "Av. Tecnológico s/n, Agrícola Bella Vista, 52149 Metepec, Méx."
-        it[email] = "webmaster@toluca.tecnm.mx"
-        it[phone] = "722 208 7200"
-        it[studentNumber] = 5800
-        it[teacherNumber] = 310
-        it[webSite] = "https://www.toluca.tecnm.mx"
-    } get Institutes.id
+    println("✅ ${BlogEventItems.selectAll().count()} items de eventos insertados")
+}
 
-    listOf(
-        Career(11, "Ingeniería Eléctrica", "Eléctrica"),
-        Career(12, "Ingeniería en Gestión Empresarial", "Gestión Empresarial")
-    ).forEach { career ->
-        Careers.insert {
-            it[careerID] = career.careerID
-            it[name] = career.name
-            it[acronym] = career.acronym
-            it[instituteId] = ittolId
-        }
+/**
+ * Insertar usuarios de ejemplo
+ */
+private fun insertSampleUsers() {
+    println("👥 Insertando usuarios de ejemplo...")
+
+    // Usuario administrador
+    Users.insert {
+        it[googleId] = "admin_google_id_123"
+        it[email] = "admin@puebla.tecnm.mx"
+        it[name] = "Administrador ITP"
+        it[role] = "ADMIN"
+        it[isActive] = true
+        it[notificationsEnabled] = true
     }
 
-    // Instituto Tecnológico Superior de Xalapa
-    val itsxId = Institutes.insert {
-        it[acronym] = "ITSX"
-        it[name] = "Instituto Tecnológico Superior de Xalapa"
-        it[address] = "Sección 5A, Reserva Territorial, 91060 Xalapa, Ver."
-        it[email] = "contacto@itsx.edu.mx"
-        it[phone] = "228 165 0525"
-        it[studentNumber] = 3800
-        it[teacherNumber] = 190
-        it[webSite] = "https://www.itsx.edu.mx"
-        it[facebook] = "https://www.facebook.com/ITSXalapa"
-        it[instagram] = "https://www.instagram.com/itsxalapa"
-        it[youtube] = "https://www.youtube.com/user/ITSXalapa"
-    } get Institutes.id
-
-    listOf(
-        Career(13, "Ingeniería Mecánica", "Mecánica"),
-        Career(14, "Licenciatura en Administración", "Administración")
-    ).forEach { career ->
-        Careers.insert {
-            it[careerID] = career.careerID
-            it[name] = career.name
-            it[acronym] = career.acronym
-            it[instituteId] = itsxId
-        }
+    // Usuario estudiante
+    Users.insert {
+        it[googleId] = "student_google_id_456"
+        it[email] = "estudiante@alumnos.puebla.tecnm.mx"
+        it[name] = "Juan Pérez"
+        it[role] = "STUDENT"
+        it[isActive] = true
+        it[notificationsEnabled] = true
     }
+
+    println("✅ ${Users.selectAll().count()} usuarios insertados")
+}
+
+// ================================
+// ✅ UTILIDADES PARA DESARROLLO
+// ================================
+
+/**
+ * Limpiar todas las tablas (para reiniciar datos)
+ */
+fun clearAllTables() {
+    transaction {
+        SchemaUtils.drop(
+            UserSubscriptions,
+            BlogEventItems,
+            BlogEvents,
+            Channels,
+            Organizations,
+            Users
+        )
+
+        SchemaUtils.create(
+            Organizations,
+            Channels,
+            BlogEvents,
+            BlogEventItems,
+            Users,
+            UserSubscriptions
+        )
+
+        insertSampleData()
+    }
+    println("✅ Base de datos reiniciada con datos frescos")
+}
+
+/**
+ * Obtener estadísticas generales de la base de datos
+ */
+fun getDatabaseStats(): Map<String, Long> = transaction {
+    mapOf(
+        "organizations" to Organizations.selectAll().count(),
+        "channels" to Channels.selectAll().count(),
+        "events" to BlogEvents.selectAll().count(),
+        "event_items" to BlogEventItems.selectAll().count(),
+        "users" to Users.selectAll().count(),
+        "subscriptions" to UserSubscriptions.selectAll().count()
+    )
 }
