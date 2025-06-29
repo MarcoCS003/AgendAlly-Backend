@@ -7,6 +7,7 @@ import io.ktor.http.*
 import io.ktor.serialization.kotlinx.json.*
 import io.ktor.server.application.*
 import io.ktor.server.engine.*
+import io.ktor.server.http.content.*
 import io.ktor.server.netty.*
 import io.ktor.server.plugins.contentnegotiation.*
 import io.ktor.server.plugins.cors.routing.*
@@ -100,7 +101,10 @@ fun Application.configureRouting() {
                             "GET /api/organizations", 
                             "GET /api/channels",
                             "GET /api/events",
-                            "GET /api/auth/client-info"
+                            "GET /api/auth/client-info",
+                            "GET /images/{filename}",
+                            "GET /static/{path}",
+                            "GET /api/images/{filename}"
                         ],
                         "protected": [
                             "GET /api/auth/me (requires: Authorization + X-Client-Type)"
@@ -111,6 +115,11 @@ fun Application.configureRouting() {
                         "step_2": "App obtiene idToken de Firebase",
                         "step_3": "App envía: Authorization: Bearer <idToken>, X-Client-Type: ANDROID_STUDENT|DESKTOP_ADMIN",
                         "step_4": "Backend valida y asigna permisos automáticamente"
+                    },
+                    "static_files": {
+                        "images": "/images/{filename}",
+                        "static": "/static/{path}",
+                        "api_images": "/api/images/{filename}"
                     }
                 }
             """.trimIndent(), ContentType.Application.Json)
@@ -123,7 +132,8 @@ fun Application.configureRouting() {
                     "timestamp": ${System.currentTimeMillis()},
                     "firebase": "${if (FirebaseConfig.isReady()) "ready" else "not_configured"}",
                     "database": "connected",
-                    "version": "2.0.0"
+                    "version": "2.0.0",
+                    "static_files": "enabled"
                 }
             """.trimIndent(), ContentType.Application.Json)
         }
@@ -133,5 +143,6 @@ fun Application.configureRouting() {
         channelsRoutes()        // /api/channels/*
         eventsRoutes()          // /api/events/*
         authRoutes()            // /api/auth/*
+        staticFilesRoutes()     // /images/*, /static/*, /api/images/*
     }
 }

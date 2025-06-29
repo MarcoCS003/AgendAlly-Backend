@@ -376,7 +376,7 @@ private fun insertEvents() {
         it[startDate] = LocalDate.of(2025, 7, 15)
         it[endDate] = LocalDate.of(2025, 7, 17)
         it[category] = "INSTITUTIONAL"
-        it[imagePath] = "/images/innovatecnm2025.jpg"
+        it[imagePath] = "InnovaTecNM.jpg"
         it[organizationId] = itpId
         it[channelId] = null // Evento institucional
         it[isActive] = true
@@ -396,7 +396,7 @@ private fun insertEvents() {
         it[startDate] = LocalDate.of(2025, 7, 1)
         it[endDate] = LocalDate.of(2025, 7, 3)
         it[category] = "CAREER"
-        it[imagePath] = "/images/ml_workshop.jpg"
+        it[imagePath] = "conferencia_ia.jpg"
         it[organizationId] = itpId
         it[channelId] = ticsChannelId
         it[isActive] = true
@@ -456,6 +456,7 @@ private fun insertEvents() {
         it[endDate] = LocalDate.of(2025, 8, 17)
         it[category] = "CAREER"
         it[organizationId] = itpId
+        it[imagePath] = "concurso_programacion.jpg"
         it[channelId] = ticsChannelId
         it[isActive] = true
     }
