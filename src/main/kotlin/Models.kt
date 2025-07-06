@@ -314,6 +314,61 @@ data class ErrorResponse(
 data class MessageResponse(
     val message: String
 )
+// log con firebase
+
+@Serializable
+data class LoginRequest(
+    val idToken: String,
+    val clientType: String = "DESKTOP_ADMIN"
+)
+
+@Serializable
+data class LoginResponse(
+    val success: Boolean,
+    val user: UserResponse? = null,
+    val organization: OrganizationResponse? = null,
+    val requiresOrganizationSetup: Boolean = false,
+    val message: String? = null
+)
+
+@Serializable
+data class UserResponse(
+    val id: Int,
+    val firebaseUid: String,
+    val email: String,
+    val name: String,
+    val profilePicture: String? = null,
+    val role: String,
+    val organizationId: Int? = null,
+    val createdAt: String,
+    val lastLoginAt: String? = null
+)
+
+@Serializable
+data class OrganizationResponse(
+    val id: Int,
+    val acronym: String,
+    val name: String,
+    val description: String,
+    val email: String,
+    val phone: String,
+    val address: String,
+    val logoUrl: String? = null,
+    val website: String? = null,
+    val isActive: Boolean = true
+)
+
+@Serializable
+data class CreateOrganizationRequest(
+    val name: String,
+    val acronym: String,
+    val description: String = "",
+    val email: String,
+    val phone: String = "",
+    val address: String = ""
+)
+
+
 
 // ============== CONFIGURACIÓN DE ROLES POR PLATAFORMA ==============
 

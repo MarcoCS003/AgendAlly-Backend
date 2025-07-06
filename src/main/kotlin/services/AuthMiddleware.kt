@@ -15,12 +15,7 @@ import org.jetbrains.exposed.sql.transactions.transaction
 import java.time.LocalDateTime
 import java.time.format.DateTimeFormatter
 
-/**
- * ✅ SISTEMA DE AUTENTICACIÓN SIMPLIFICADO
- *
- * Las apps se autentican directamente con Firebase Auth
- * El backend solo valida tokens y determina permisos
- */
+
 class AuthMiddleware {
 
     private val firebaseAuth: FirebaseAuth by lazy {
@@ -168,6 +163,41 @@ class AuthMiddleware {
             lastSyncAt = row[Users.lastSyncAt]?.format(DateTimeFormatter.ISO_LOCAL_DATE_TIME)
         )
     }
+
+    fun authenticateUser(idToken: String): AuthResult? {
+        return try {
+            // 1. Validar token con Firebase
+            val decodedToken = FirebaseAuth.getInstance().verifyIdToken(idToken)
+
+            // 2. Determinar permisos como DESKTOP_ADMIN (siempre SUPER_ADMIN)
+            val permissions = UserPermissions(
+                role = UserRole.ADMIN,
+                canCreateEvents = true,
+                canManageChannels = true,
+                canManageOrganizations = true,
+                requiresOrganization = false
+            )
+
+            // 3. Crear/actualizar usuario
+
+
+            val user = ensureUserExists(decodedToken, UserRole.ADMIN)
+
+            AuthResult(
+                user = user,
+                permissions = permissions,
+                firebaseToken = decodedToken
+            )
+
+        } catch (e: FirebaseAuthException) {
+            println("❌ Token inválido: ${e.message}")
+            null
+        } catch (e: Exception) {
+            println("❌ Error validando token: ${e.message}")
+            null
+        }
+    }
+
 }
 
 /**
@@ -292,6 +322,7 @@ fun ApplicationCall.getAuthResult(): AuthResult? {
 fun ApplicationCall.getAuthenticatedUser(): User? {
     return getAuthResult()?.user
 }
+
 
 /**
  * Extensión para obtener permisos del usuario

@@ -119,9 +119,16 @@ object Users : Table("users") {
     val syncEnabled = bool("sync_enabled").default(false)
     val lastSyncAt = datetime("last_sync_at").nullable()
 
+    // ✨ NUEVOS CAMPOS PARA AUTENTICACIÓN FIREBASE
+    val organizationId = reference("organization_id", Organizations.id).nullable()
+    val firebaseUid = varchar("firebase_uid", 255).uniqueIndex().nullable()
+    val refreshToken = text("refresh_token").nullable()
+    val lastOrganizationAccess = datetime("last_organization_access").nullable()
+    val emailVerified = bool("email_verified").default(false)
+    val accountType = varchar("account_type", 50).default("GOOGLE") // GOOGLE, MICROSOFT, etc.
+
     override val primaryKey = PrimaryKey(id)
 }
-
 /**
  * Tabla de suscripciones de usuarios a canales
  */

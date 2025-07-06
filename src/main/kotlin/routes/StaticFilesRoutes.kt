@@ -8,22 +8,17 @@ import io.ktor.server.response.*
 import io.ktor.server.routing.*
 import java.io.File
 
-/**
- * ✅ RUTAS PARA SERVIR ARCHIVOS ESTÁTICOS (IMÁGENES)
- */
+
 fun Route.staticFilesRoutes() {
 
-    // Servir archivos desde la carpeta /images
+    // Servir archivos desde resources/images (como en Android)
     static("/images") {
-        staticRootFolder = File("static/images") // Carpeta en tu servidor
-        files(".")
-    // Imagen por defecto si no existe
+        resources("images")
     }
 
-    // Ruta alternativa para servir archivos estáticos
+    // Ruta alternativa para servir otros recursos
     static("/static") {
-        staticRootFolder = File("static")
-        files(".")
+        resources("static")
     }
 
     // Ruta manual para más control (opcional)
@@ -48,5 +43,6 @@ fun Route.staticFilesRoutes() {
             "svg" -> ContentType.Image.SVG
             else -> ContentType.Application.OctetStream
         }
+        
     }
 }

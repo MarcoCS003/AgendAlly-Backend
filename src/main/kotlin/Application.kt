@@ -1,13 +1,16 @@
 package com.academically
 
+
 import com.example.ClientType
 import com.example.routes.eventsRoutes
+import com.google.auth.oauth2.GoogleCredentials
+import com.google.firebase.FirebaseApp
+import com.google.firebase.FirebaseOptions
 import database.initDatabase
 import io.ktor.http.*
 import io.ktor.serialization.kotlinx.json.*
 import io.ktor.server.application.*
 import io.ktor.server.engine.*
-import io.ktor.server.http.content.*
 import io.ktor.server.netty.*
 import io.ktor.server.plugins.contentnegotiation.*
 import io.ktor.server.plugins.cors.routing.*
@@ -16,6 +19,7 @@ import io.ktor.server.response.*
 import io.ktor.server.routing.*
 import kotlinx.serialization.json.Json
 import routes.*
+import java.io.FileInputStream
 
 fun main() {
     val port = System.getenv("PORT")?.toInt() ?: 8080
@@ -27,7 +31,61 @@ fun main() {
     println("🔥 Auth: Firebase Direct")
     println("🏢 Organizations: Auto-assignment by email")
 
+    // 🖼️ Verificar carpeta de imágenes al inicio
+    checkStaticFilesSetup()
+    System.setProperty("ENVIRONMENT", "development")
+    initializeFirebase()
+
     embeddedServer(Netty, port = port, host = host, module = Application::module).start(wait = true)
+}
+
+fun checkStaticFilesSetup() {
+    println("\n🖼️ === VERIFICACIÓN DE ARCHIVOS EN RESOURCES ===")
+
+    // Verificar recursos en classpath
+    val resourcesAvailable = object {}.javaClass.getResource("/images") != null
+    println("📁 Directorio /resources/images existe: $resourcesAvailable")
+
+    if (resourcesAvailable) {
+        // Verificar las imágenes específicas de la BD
+        val requiredImages = listOf("InnovaTecNM.jpg", "conferencia_ia.jpg", "concurso_programacion.jpg")
+        println("\n✅ Verificación de imágenes requeridas en resources:")
+        requiredImages.forEach { imageName ->
+            val resource = object {}.javaClass.getResource("/images/$imageName")
+            val exists = resource != null
+            println("   - $imageName: ${if (exists) "✅ EXISTE" else "❌ FALTA"}")
+            if (exists) {
+                try {
+                    val size = resource!!.openStream().available()
+                    println("     Tamaño: $size bytes")
+                } catch (e: Exception) {
+                    println("     Error leyendo: ${e.message}")
+                }
+            }
+        }
+    } else {
+        println("❌ Directorio de imágenes no encontrado en resources")
+        println("💡 Crea la carpeta: src/main/resources/images/")
+    }
+    println("===========================================\n")
+}
+
+fun initializeFirebase() {
+    try {
+        if (FirebaseApp.getApps().isEmpty()) {
+            val serviceAccount = FileInputStream("firebase-service-account.json")
+
+            val options = FirebaseOptions.builder()
+                .setCredentials(GoogleCredentials.fromStream(serviceAccount))
+                .build()
+
+            FirebaseApp.initializeApp(options)
+            println("✅ Firebase inicializado correctamente")
+        }
+    } catch (e: Exception) {
+        println("⚠️ Advertencia: Firebase no inicializado - ${e.message}")
+        println("📁 Asegúrate de tener firebase-service-account.json en la raíz del proyecto")
+    }
 }
 
 fun Application.module() {
@@ -49,6 +107,8 @@ fun Application.configureFirebase() {
         println("⚠️ Firebase error: ${e.message} - Continuando...")
     }
 }
+
+
 
 fun Application.configureDatabase() {
     println("📊 Inicializando BD...")
@@ -136,6 +196,26 @@ fun Application.configureRouting() {
                     "static_files": "enabled"
                 }
             """.trimIndent(), ContentType.Application.Json)
+        }
+
+        // ===== RUTAS DE DEBUG PARA IMÁGENES EN RESOURCES =====
+        get("/debug/images") {
+            val requiredImages = listOf("InnovaTecNM.jpg", "conferencia_ia.jpg", "concurso_programacion.jpg")
+            val imagesList = requiredImages.map { imageName ->
+                val resource = this::class.java.getResource("/images/$imageName")
+                mapOf(
+                    "name" to imageName,
+                    "exists" to (resource != null),
+                    "url" to "http://localhost:8080/images/$imageName",
+                    "resource_path" to "/images/$imageName"
+                )
+            }
+
+            call.respond(HttpStatusCode.OK, mapOf(
+                "resources_directory_exists" to (this::class.java.getResource("/images") != null),
+                "images_checked" to imagesList.size,
+                "images" to imagesList
+            ))
         }
 
         // ===== RUTAS MODULARES =====
